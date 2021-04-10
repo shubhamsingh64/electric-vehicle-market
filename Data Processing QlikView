@@ -1,0 +1,317 @@
+///$tab Main
+SET ThousandSep=',';
+SET DecimalSep='.';
+SET MoneyThousandSep=',';
+SET MoneyDecimalSep='.';
+SET MoneyFormat='₹ #,##0.00;-₹ #,##0.00';
+SET TimeFormat='h:mm:ss TT';
+SET DateFormat='DD/MM/YYYY';
+SET TimestampFormat='DD/MM/YYYY h:mm:ss[.fff] TT';
+SET FirstWeekDay=6;
+SET BrokenWeeks=1;
+SET ReferenceDay=0;
+SET FirstMonthOfYear=1;
+SET CollationLocale='en-IN';
+SET MonthNames='Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec';
+SET LongMonthNames='January;February;March;April;May;June;July;August;September;October;November;December';
+SET DayNames='Mon;Tue;Wed;Thu;Fri;Sat;Sun';
+SET LongDayNames='Monday;Tuesday;Wednesday;Thursday;Friday;Saturday;Sunday';
+///$tab Stage 1
+VehicleCategory:
+LOAD * INLINE [x1];
+
+VehicleCategoryEV:
+LOAD * INLINE [x2];
+
+VehicleClass:
+LOAD * INLINE [x3];
+
+VehicleClassEV:
+LOAD * INLINE [x4];
+
+FOR I=2015 TO 2021
+
+Temp1:
+LOAD F1, 
+     F2 as [Vehicle Category], 
+     JAN, 
+     FEB, 
+     MAR, 
+     APR, 
+     MAY, 
+     JUN, 
+     JUL, 
+     AUG, 
+     SEP, 
+     OCT, 
+     NOV, 
+     DEC,
+     $(I) as Year,
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\EV Sales By Vehicle Category\$(I) EV.xlsx]
+(ooxml, embedded labels, header is 3 lines, table is reportTable);
+LEFT JOIN
+FIRST 1
+LOAD A as FileType, 
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\EV Sales By Vehicle Category\$(I) EV.xlsx]
+(ooxml, no labels, table is reportTable);
+
+Concatenate(VehicleCategoryEV)
+LOAD * Resident Temp1;
+
+DROP TABLE Temp1;
+
+Temp2:
+LOAD F1, 
+     F2 as [Vehicle Category], 
+     JAN, 
+     FEB, 
+     MAR, 
+     APR, 
+     MAY, 
+     JUN, 
+     JUL, 
+     AUG, 
+     SEP, 
+     OCT, 
+     NOV, 
+     DEC,
+     $(I) as Year,
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\Total Sales By Vehicle Category\$(I) Overall.xlsx]
+(ooxml, embedded labels, header is 3 lines, table is reportTable);
+LEFT JOIN
+FIRST 1
+LOAD A as FileType, 
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\Total Sales By Vehicle Category\$(I) Overall.xlsx]
+(ooxml, no labels, table is reportTable);
+
+Concatenate(VehicleCategory)
+LOAD * Resident Temp2;
+
+DROP TABLE Temp2;
+	
+Temp3:
+LOAD F1, 
+     F2 as [Vehicle Class], 
+     JAN, 
+     FEB, 
+     MAR, 
+     APR, 
+     MAY, 
+     JUN, 
+     JUL, 
+     AUG, 
+     SEP, 
+     OCT, 
+     NOV, 
+     DEC,
+     $(I) as Year,
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\Sales by Vehicle Class All\$(I)-VC.xlsx]
+(ooxml, embedded labels, header is 3 lines, table is reportTable);
+LEFT JOIN(Temp3)
+FIRST 1
+LOAD A as FileType, 
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\Sales by Vehicle Class All\$(I)-VC.xlsx]
+(ooxml, no labels, table is reportTable);
+
+Concatenate(VehicleClass)
+LOAD * Resident Temp3;
+
+DROP TABLE Temp3;
+
+Temp4:
+LOAD F1, 
+     F2 as [Vehicle Class], 
+     JAN, 
+     FEB, 
+     MAR, 
+     APR, 
+     MAY, 
+     JUN, 
+     JUL, 
+     AUG, 
+     SEP, 
+     OCT, 
+     NOV, 
+     DEC,
+     $(I) as Year,
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\EV Sales by Vehicle Class\$(I).xlsx]
+(ooxml, embedded labels, header is 3 lines, table is reportTable);
+LEFT JOIN(Temp4)
+FIRST 1
+LOAD A as FileType, 
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\EV Sales by Vehicle Class\$(I).xlsx]
+(ooxml, no labels, table is reportTable);
+
+Concatenate(VehicleClassEV)
+LOAD * Resident Temp4;
+
+DROP TABLE Temp4;
+	
+NEXT I;
+///$tab Stage 2
+MonthMap:
+MAPPING LOAD RowNo() as ID,MonthNames INLINE [
+MonthNames
+JAN
+FEB
+MAR
+APR
+MAY
+JUN
+JUL
+AUG
+SEP
+OCT
+NOV
+DEC
+];
+
+VehicleCategoryFinal:
+LOAD * INLINE [x1];
+
+VehicleClassFinal:
+LOAD * INLINE [x2];
+
+FOR I = 1 TO 12
+
+LET vMonth=ApplyMap('MonthMap',$(I),'<>');
+
+Concatenate(VehicleCategoryFinal)
+LOAD [Vehicle Category], 
+     NUM(NUM#([$(vMonth)],'##,##,##,##0')) as Value, 
+     '$(vMonth)' as Month,
+     Year,
+     Date(Date#(Year&'$(vMonth)'&01,'YYYYMMMDD'),'DD/MM/YYYY') as Date,  
+     FileType,
+     'All' as FuelType
+Resident VehicleCategory WHERE LEN(F1)>0;
+
+Concatenate(VehicleCategoryFinal)
+LOAD [Vehicle Category], 
+     NUM(NUM#([$(vMonth)],'##,##,##,##0')) as Value, 
+     '$(vMonth)' as Month,
+     Year,
+     Date(Date#(Year&'$(vMonth)'&01,'YYYYMMMDD'),'DD/MM/YYYY') as Date,  
+     FileType,
+     'EV' as FuelType
+Resident VehicleCategoryEV WHERE LEN(F1)>0;
+
+Concatenate(VehicleClassFinal)
+LOAD [Vehicle Class], 
+     NUM(NUM#([$(vMonth)],'##,##,##,##0')) as Value, 
+     '$(vMonth)' as Month,
+     Year,
+     Date(Date#(Year&'$(vMonth)'&01,'YYYYMMMDD'),'DD/MM/YYYY') as Date,  
+     FileType,
+     'All' as FuelType
+Resident VehicleClass WHERE LEN(F1)>0;
+
+Concatenate(VehicleClassFinal)
+LOAD [Vehicle Class], 
+     NUM(NUM#([$(vMonth)],'##,##,##,##0')) as Value, 
+     '$(vMonth)' as Month,
+     Year, 
+     Date(Date#(Year&'$(vMonth)'&01,'YYYYMMMDD'),'DD/MM/YYYY') as Date, 
+     FileType,
+     'EV' as FuelType
+Resident VehicleClassEV WHERE LEN(F1)>0;
+
+NEXT I;
+
+DROP TABLE VehicleCategory,VehicleCategoryEV,VehicleClass,VehicleClassEV;
+
+STORE [VehicleCategoryFinal] INTO [C:\Users\shubh\OneDrive\Documents\EV\VehicleCategoryFinal.csv](txt);
+STORE [VehicleClassFinal] INTO [C:\Users\shubh\OneDrive\Documents\EV\VehicleClassFinal.csv](txt);
+
+DROP TABLE VehicleClassFinal;
+
+
+Exit SCRIPT;
+
+
+///$tab State
+ByState:
+LOAD * INLINE [x];
+
+
+FOR I=1 To 14
+
+Temp:
+LOAD F1, 
+     F2 as [Vehicle Category], 
+     [2021], 
+     [2020], 
+     [2019], 
+     [2018], 
+     [2017],
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\State\Sales by State - RR\reportTable ($(I)).xlsx]
+(ooxml, embedded labels, header is 3 lines, table is reportTable);
+
+LEFT JOIN(Temp)
+FIRST 1
+LOAD A as FileType, 
+     MID(A,46,LEN(A)-45-2) as State,
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\State\Sales by State - RR\reportTable ($(I)).xlsx]
+(ooxml, no labels, table is reportTable);
+
+Concatenate(ByState)
+LOAD * Resident Temp;
+
+DROP TABLE Temp;
+
+NEXT I;
+
+FOR I=1 To 16
+
+Temp:
+LOAD F1, 
+     F2 as [Vehicle Category], 
+     [2021], 
+     [2020], 
+     [2019], 
+     [2018], 
+     [2017],
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\State\EV Sales by State\reportTable ($(I)).xlsx]
+(ooxml, embedded labels, header is 3 lines, table is reportTable);
+
+LEFT JOIN(Temp)
+FIRST 1
+LOAD A as FileType, 
+     MID(A,46,LEN(A)-45-2) as State,
+     FileName() as FileName
+FROM
+[C:\Users\shubh\OneDrive\Documents\EV\State\EV Sales by State\reportTable ($(I)).xlsx]
+(ooxml, no labels, table is reportTable);
+
+Concatenate(ByState)
+LOAD * Resident Temp;
+
+DROP TABLE Temp;
+
+NEXT I;
+
+STORE [ByState] INTO [C:\Users\shubh\OneDrive\Documents\EV\State\ByState.csv](txt);
+
+Exit SCRIPT;
